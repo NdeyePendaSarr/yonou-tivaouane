@@ -18,7 +18,7 @@ const carsRoutes = require('./src/routes/cars.routes');
 const incidentsRoutes = require('./src/routes/incidents.routes');
 const dashboardRoutes = require('./src/routes/dashboard.routes');
 const notificationsRoutes = require('./src/routes/notifications.routes');
-const statsRoutes = require('./routes/stats.routes');
+const statsRoutes = require('./src/routes/stats.routes');
 
 
 // Import du logger
