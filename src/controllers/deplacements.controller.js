@@ -365,3 +365,58 @@ exports.getDeplacementStats = async (req, res, next) => {
     next(error);
   }
 };
+
+// @desc    Obtenir les déplacements d'une édition spécifique
+// @route   GET /api/deplacements/edition/:editionId
+// @access  Private
+exports.getDeplacementsByEdition = async (req, res, next) => {
+  try {
+    const { editionId } = req.params;
+    const { type, statut } = req.query;
+
+    // Vérifier que l'édition existe
+    const edition = await EditionMawlid.findByPk(editionId);
+    if (!edition) {
+      return res.status(404).json({
+        success: false,
+        message: 'Édition introuvable'
+      });
+    }
+
+    const whereClause = { edition_id: editionId };
+    if (type) whereClause.type = type;
+    if (statut) whereClause.statut = statut;
+
+    const deplacements = await Deplacement.findAll({
+      where: whereClause,
+      include: [
+        {
+          model: Section,
+          as: 'section',
+          include: [{
+            model: SousLocalite,
+            as: 'sousLocalite',
+            attributes: ['id', 'code', 'nom']
+          }]
+        },
+        {
+          model: Car,
+          as: 'cars'
+        }
+      ],
+      order: [['date_prevue', 'ASC'], ['type', 'ASC']]
+    });
+
+    res.status(200).json({
+      success: true,
+      count: deplacements.length,
+      data: { 
+        edition,
+        deplacements 
+      }
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};

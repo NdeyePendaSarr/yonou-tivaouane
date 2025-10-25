@@ -18,6 +18,8 @@ const carsRoutes = require('./src/routes/cars.routes');
 const incidentsRoutes = require('./src/routes/incidents.routes');
 const dashboardRoutes = require('./src/routes/dashboard.routes');
 const notificationsRoutes = require('./src/routes/notifications.routes');
+const statsRoutes = require('./routes/stats.routes');
+
 
 // Import du logger
 const logger = require('./src/utils/logger');
@@ -81,6 +83,7 @@ app.use('/api/cars', carsRoutes);
 app.use('/api/incidents', incidentsRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/notifications', notificationsRoutes);
+app.use('/api/stats', statsRoutes);
 
 // Route 404
 app.use('*', (req, res) => {
