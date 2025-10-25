@@ -456,19 +456,3 @@ exports.deleteCar = async (req, res, next) => {
     next(error);
   }
 };
-
-// ====================================================================
-// EXPORTS
-// ====================================================================
-
-module.exports = {
-  getAllCars,
-  getCarsTempsReel,
-  getCarById,
-  createCar,
-  updateCar,
-  updateCarStatus,
-  enregistrerDepart,
-  enregistrerArrivee,
-  deleteCar
-};
