@@ -1,11 +1,11 @@
 // ==========================================
-// FICHIER : backend/routes/sousLocalites.routes.js
+// FICHIER : backend/src/routes/sousLocalites.routes.js
 // ==========================================
 
 const express = require('express');
 const router = express.Router();
 const sousLocalitesController = require('../controllers/sousLocalites.controller');
-const { authenticateToken } = require('../middleware/auth.middleware');
+const { authenticateToken } = require('../middlewares/auth.middleware'); // ✅ CORRIGÉ : middlewares (avec S)
 
 /**
  * @route   GET /api/sous-localites
