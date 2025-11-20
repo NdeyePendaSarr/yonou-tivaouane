@@ -5,7 +5,7 @@
 const express = require('express');
 const router = express.Router();
 const sousLocalitesController = require('../controllers/sousLocalites.controller');
-const { authenticateToken } = require('../middlewares/auth.middleware'); // ✅ CORRIGÉ : middlewares (avec S)
+const { authenticateToken } = require('../middlewares/auth'); // ✅ CORRIGÉ : middlewares (avec S)
 
 /**
  * @route   GET /api/sous-localites
