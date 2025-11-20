@@ -253,7 +253,7 @@ exports.forgotPassword = async (req, res, next) => {
 
     // ENVOI DU VRAI EMAIL AVEC RESEND
     await resend.emails.send({
-  from: 'Yonou Tivaouane <onboarding@resend.dev>',  // ← ÇA C'EST LA CLÉ !!!
+     from: 'onboarding@resend.dev', // ← ÇA C'EST LA CLÉ !!!
   to: email,
   subject: 'Réinitialisation de votre mot de passe',
       html: `
