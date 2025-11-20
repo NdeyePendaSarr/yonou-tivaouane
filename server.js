@@ -13,13 +13,13 @@ const sequelize = require('./src/config/database');
 const authRoutes = require('./src/routes/auth.routes');
 const editionsRoutes = require('./src/routes/editions.routes');
 const sectionsRoutes = require('./src/routes/sections.routes');
-const sousLocalitesRoutes = require('./src/routes/sousLocalites.routes'); // ✅ AJOUTÉ
 const deplacementsRoutes = require('./src/routes/deplacements.routes');
 const carsRoutes = require('./src/routes/cars.routes');
 const incidentsRoutes = require('./src/routes/incidents.routes');
 const dashboardRoutes = require('./src/routes/dashboard.routes');
 const notificationsRoutes = require('./src/routes/notifications.routes');
 const statsRoutes = require('./src/routes/stats.routes');
+
 
 // Import du logger
 const logger = require('./src/utils/logger');
@@ -78,7 +78,6 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/editions', editionsRoutes);
 app.use('/api/sections', sectionsRoutes);
-app.use('/api/sous-localites', sousLocalitesRoutes); // ✅ AJOUTÉ
 app.use('/api/deplacements', deplacementsRoutes);
 app.use('/api/cars', carsRoutes);
 app.use('/api/incidents', incidentsRoutes);
@@ -115,17 +114,6 @@ const startServer = async () => {
       logger.info(`🚀 Serveur démarré sur le port ${PORT}`);
       logger.info(`📍 Environnement: ${process.env.NODE_ENV}`);
       logger.info(`🔗 API disponible sur: http://localhost:${PORT}/api`);
-      logger.info('📋 Routes disponibles:');
-      logger.info('   - /api/auth');
-      logger.info('   - /api/editions');
-      logger.info('   - /api/sections');
-      logger.info('   - /api/sous-localites ✨ NOUVEAU');
-      logger.info('   - /api/deplacements');
-      logger.info('   - /api/cars');
-      logger.info('   - /api/incidents');
-      logger.info('   - /api/dashboard');
-      logger.info('   - /api/notifications');
-      logger.info('   - /api/stats');
     });
 
   } catch (error) {
