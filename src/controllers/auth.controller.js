@@ -223,6 +223,8 @@ exports.forgotPassword = async (req, res, next) => {
   try {
     const { email } = req.body;
 
+    console.log('🔍 [FORGOT-PASSWORD] Début de la requête pour:', email);
+
     if (!email) {
       return res.status(400).json({
         success: false,
@@ -234,11 +236,14 @@ exports.forgotPassword = async (req, res, next) => {
 
     // Sécurité : même réponse si l'email n'existe pas
     if (!user) {
+      console.log('⚠️ [FORGOT-PASSWORD] Utilisateur non trouvé:', email);
       return res.json({
         success: true,
         message: 'Si un compte existe avec cet email, un lien de réinitialisation a été envoyé'
       });
     }
+
+    console.log('✅ [FORGOT-PASSWORD] Utilisateur trouvé:', user.email);
 
     // Génère un token sécurisé (valable 1 heure)
     const resetToken = Math.random().toString(36).substring(2, 15) +
@@ -249,42 +254,68 @@ exports.forgotPassword = async (req, res, next) => {
     user.reset_password_expires = Date.now() + 3600000; // 1 heure
     await user.save();
 
+    console.log('🔑 [FORGOT-PASSWORD] Token généré:', resetToken);
+
     const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password/${resetToken}`;
+    console.log('🔗 [FORGOT-PASSWORD] URL de réinitialisation:', resetUrl);
 
     // ENVOI DU VRAI EMAIL AVEC RESEND
-    await resend.emails.send({
-     from: 'onboarding@resend.dev', // ← ÇA C'EST LA CLÉ !!!
-  to: email,
-  subject: 'Réinitialisation de votre mot de passe',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; background: #f9f9f9; border-radius: 12px;">
-          <h2 style="color: #AC3700; text-align: center;">Yonou Tivaouane</h2>
-          <p style="font-size: 16px;">Bonjour <strong>${user.prenom || 'utilisateur'}</strong>,</p>
-          <p style="font-size: 16px;">Vous avez demandé une réinitialisation de votre mot de passe.</p>
-          <p style="font-size: 16px;">Cliquez sur le bouton ci-dessous pour choisir un nouveau mot de passe (lien valable 1 heure) :</p>
-          <div style="text-align: center; margin: 40px 0;">
-            <a href="${resetUrl}" style="background: #AC3700; color: white; padding: 16px 32px; text-decoration: none; border-radius: 10px; font-weight: bold; font-size: 16px;">
-              Réinitialiser mon mot de passe
-            </a>
+    console.log('📧 [FORGOT-PASSWORD] Tentative d\'envoi d\'email via Resend...');
+    console.log('   - From:', 'onboarding@resend.dev');
+    console.log('   - To:', email);
+    console.log('   - API Key présente:', !!process.env.RESEND_API_KEY);
+
+    try {
+      const emailResult = await resend.emails.send({
+        from: 'onboarding@resend.dev',
+        to: email,
+        subject: '🔐 Réinitialisation de votre mot de passe - Yonou Tivaouane',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; background: #f9f9f9; border-radius: 12px;">
+            <h2 style="color: #AC3700; text-align: center;">Yonou Tivaouane</h2>
+            <p style="font-size: 16px;">Bonjour <strong>${user.prenom || 'utilisateur'}</strong>,</p>
+            <p style="font-size: 16px;">Vous avez demandé une réinitialisation de votre mot de passe.</p>
+            <p style="font-size: 16px;">Cliquez sur le bouton ci-dessous pour choisir un nouveau mot de passe (lien valable 1 heure) :</p>
+            <div style="text-align: center; margin: 40px 0;">
+              <a href="${resetUrl}" style="background: #AC3700; color: white; padding: 16px 32px; text-decoration: none; border-radius: 10px; font-weight: bold; font-size: 16px;">
+                Réinitialiser mon mot de passe
+              </a>
+            </div>
+            <p style="font-size: 14px; color: #666;">Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.</p>
+            <hr style="border: 1px solid #eee; margin: 30px 0;">
+            <p style="font-size: 12px; color: #999; text-align: center;">
+              Yonou Tivaouane - Gestion des déplacements Mbour ↔ Tivaouane<br>
+              © 2025 NPS - Tous droits réservés
+            </p>
           </div>
-          <p style="font-size: 14px; color: #666;">Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.</p>
-          <hr style="border: 1px solid #eee; margin: 30px 0;">
-          <p style="font-size: 12px; color: #999; text-align: center;">
-            Yonou Tivaouane - Gestion des déplacements Mbour ↔ Tivaouane<br>
-            © 2025 NPS - Tous droits réservés
-          </p>
-        </div>
-      `
-    });
+        `
+      });
 
-    logger.info(`Email de réinitialisation envoyé à ${email}`);
+      console.log('✅ [FORGOT-PASSWORD] Email envoyé avec succès !');
+      console.log('📬 [FORGOT-PASSWORD] Résultat Resend:', JSON.stringify(emailResult, null, 2));
 
-    res.json({
-      success: true,
-      message: 'Si un compte existe avec cet email, un lien de réinitialisation a été envoyé'
-    });
+      logger.info(`Email de réinitialisation envoyé à ${email}`);
+
+      res.json({
+        success: true,
+        message: 'Si un compte existe avec cet email, un lien de réinitialisation a été envoyé'
+      });
+
+    } catch (emailError) {
+      console.error('❌ [FORGOT-PASSWORD] ERREUR lors de l\'envoi de l\'email:');
+      console.error('   - Message:', emailError.message);
+      console.error('   - Stack:', emailError.stack);
+      console.error('   - Détails complets:', JSON.stringify(emailError, null, 2));
+      
+      // On retourne quand même success pour ne pas révéler si l'email existe
+      res.json({
+        success: true,
+        message: 'Si un compte existe avec cet email, un lien de réinitialisation a été envoyé'
+      });
+    }
 
   } catch (error) {
+    console.error('❌ [FORGOT-PASSWORD] ERREUR GÉNÉRALE:', error);
     logger.error('Erreur lors de l\'envoi de l\'email de réinitialisation:', error);
     next(error);
   }
