@@ -214,3 +214,118 @@ exports.changePassword = async (req, res, next) => {
     next(error);
   }
 };
+
+// ======================================================================
+// =================== MOT DE PASSE OUBLIÉ - 2 NOUVELLES FONCTIONS ======
+// ======================================================================
+
+// @desc    Demander un lien de réinitialisation de mot de passe
+// @route   POST /api/auth/forgot-password
+// @access  Public
+exports.forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Veuillez fournir un email'
+      });
+    }
+
+    const user = await User.findOne({ where: { email } });
+
+    // Sécurité : même si l'email n'existe pas, on renvoie un message neutre
+    if (!user) {
+      return res.json({
+        success: true,
+        message: 'Si un compte existe avec cet email, un lien de réinitialisation a été envoyé'
+      });
+    }
+
+    // Génère un token sécurisé (valable 1 heure)
+    const resetToken = Math.random().toString(36).substring(2, 15) + 
+                      Math.random().toString(36).substring(2, 15) + 
+                      Math.random().toString(36).substring(2, 15);
+
+    user.reset_password_token = resetToken;
+    user.reset_password_expires = Date.now() + 3600000; // 1 heure
+    await user.save();
+
+    // URL de réinitialisation (adapte le port si besoin)
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password/${resetToken}`;
+
+    // Pour tester SANS email : on log le lien dans la console
+    logger.info(`LIEN DE RÉINITIALISATION pour ${email} : ${resetUrl}`.bgYellow.black);
+
+    // Plus tard tu ajouteras nodemailer ici
+    // await sendResetEmail(email, resetUrl);
+
+    res.json({
+      success: true,
+      message: 'Si un compte existe avec cet email, un lien de réinitialisation a été envoyé'
+    });
+
+  } catch (error) {
+    logger.error('Erreur forgotPassword:', error);
+    next(error);
+  }
+};
+
+// @desc    Réinitialiser le mot de passe avec le token
+// @route   POST /api/auth/reset-password
+// @access  Public
+exports.resetPassword = async (req, res, next) => {
+  try {
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Token et nouveau mot de passe requis'
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Le mot de passe doit contenir au moins 6 caractères'
+      });
+    }
+
+    const user = await User.findOne({
+      where: {
+        reset_password_token: token,
+        reset_password_expires: { [require('sequelize').Op.gt]: Date.now() }
+      }
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: 'Lien invalide ou expiré'
+      });
+    }
+
+    // Mise à jour du mot de passe
+    user.password_hash = password; // Ton hook beforeCreate/beforeUpdate hash automatiquement
+    user.reset_password_token = null;
+    user.reset_password_expires = null;
+    await user.save();
+
+    logger.info(`Mot de passe réinitialisé avec succès pour: ${user.email}`);
+
+    res.json({
+      success: true,
+      message: 'Mot de passe modifié avec succès'
+    });
+
+  } catch (error) {
+    logger.error('Erreur resetPassword:', error);
+    next(error);
+  }
+};
+
+// ======================================================================
+// ========================= FIN DES AJOUTS =============================
+// ======================================================================

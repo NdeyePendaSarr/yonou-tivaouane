@@ -6,12 +6,18 @@ const {
   login,
   getMe,
   updateMe,
-  changePassword
+  changePassword,
+  forgotPassword,      // ← AJOUTÉ
+  resetPassword        // ← AJOUTÉ
 } = require('../controllers/auth.controller');
 
 // Routes publiques
 router.post('/register', register);
 router.post('/login', login);
+
+// Routes publiques pour mot de passe oublié
+router.post('/forgot-password', forgotPassword);     // ← NOUVELLE ROUTE
+router.post('/reset-password', resetPassword);       // ← NOUVELLE ROUTE
 
 // Routes protégées
 router.get('/me', protect, getMe);
