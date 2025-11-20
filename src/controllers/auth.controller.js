@@ -1,6 +1,9 @@
 const jwt = require('jsonwebtoken');
 const { User } = require('../models');
 const logger = require('../utils/logger');
+const { Resend } = require('resend'); // ← AJOUTÉ
+
+const resend = new Resend(process.env.RESEND_API_KEY); // ← AJOUTÉ
 
 // Générer un token JWT
 const generateToken = (id) => {
@@ -16,7 +19,6 @@ exports.register = async (req, res, next) => {
   try {
     const { nom, prenom, email, password, telephone, role } = req.body;
 
-    // Vérifier si l'utilisateur existe déjà
     const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
       return res.status(400).json({
@@ -25,7 +27,6 @@ exports.register = async (req, res, next) => {
       });
     }
 
-    // Créer l'utilisateur
     const user = await User.create({
       nom,
       prenom,
@@ -35,7 +36,6 @@ exports.register = async (req, res, next) => {
       role: role || 'Observateur'
     });
 
-    // Générer le token
     const token = generateToken(user.id);
 
     logger.info(`Nouvel utilisateur créé: ${email}`);
@@ -74,7 +74,6 @@ exports.login = async (req, res, next) => {
       });
     }
 
-    // Trouver l'utilisateur
     const user = await User.findOne({ 
       where: { email },
       attributes: { include: ['password_hash'] }
@@ -94,7 +93,6 @@ exports.login = async (req, res, next) => {
       });
     }
 
-    // Vérifier le mot de passe
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
       return res.status(401).json({
@@ -103,7 +101,6 @@ exports.login = async (req, res, next) => {
       });
     }
 
-    // Générer le token
     const token = generateToken(user.id);
 
     logger.info(`Connexion réussie: ${email}`);
@@ -216,7 +213,7 @@ exports.changePassword = async (req, res, next) => {
 };
 
 // ======================================================================
-// =================== MOT DE PASSE OUBLIÉ - 2 NOUVELLES FONCTIONS ======
+// =================== MOT DE PASSE OUBLIÉ - VRAI EMAIL AVEC RESEND =====
 // ======================================================================
 
 // @desc    Demander un lien de réinitialisation de mot de passe
@@ -235,7 +232,7 @@ exports.forgotPassword = async (req, res, next) => {
 
     const user = await User.findOne({ where: { email } });
 
-    // Sécurité : même si l'email n'existe pas, on renvoie un message neutre
+    // Sécurité : même réponse si l'email n'existe pas
     if (!user) {
       return res.json({
         success: true,
@@ -244,22 +241,43 @@ exports.forgotPassword = async (req, res, next) => {
     }
 
     // Génère un token sécurisé (valable 1 heure)
-    const resetToken = Math.random().toString(36).substring(2, 15) + 
-                      Math.random().toString(36).substring(2, 15) + 
+    const resetToken = Math.random().toString(36).substring(2, 15) +
+                      Math.random().toString(36).substring(2, 15) +
                       Math.random().toString(36).substring(2, 15);
 
     user.reset_password_token = resetToken;
     user.reset_password_expires = Date.now() + 3600000; // 1 heure
     await user.save();
 
-    // URL de réinitialisation (adapte le port si besoin)
     const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password/${resetToken}`;
 
-    // Pour tester SANS email : on log le lien dans la console
-    logger.info(`LIEN DE RÉINITIALISATION pour ${email} : ${resetUrl}`.bgYellow.black);
+    // ENVOI DU VRAI EMAIL AVEC RESEND
+    await resend.emails.send({
+      from: 'Yonou Tivaouane <no-reply@yonou.sn>',
+      to: email,
+      subject: 'Réinitialisation de votre mot de passe',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; background: #f9f9f9; border-radius: 12px;">
+          <h2 style="color: #AC3700; text-align: center;">Yonou Tivaouane</h2>
+          <p style="font-size: 16px;">Bonjour <strong>${user.prenom || 'utilisateur'}</strong>,</p>
+          <p style="font-size: 16px;">Vous avez demandé une réinitialisation de votre mot de passe.</p>
+          <p style="font-size: 16px;">Cliquez sur le bouton ci-dessous pour choisir un nouveau mot de passe (lien valable 1 heure) :</p>
+          <div style="text-align: center; margin: 40px 0;">
+            <a href="${resetUrl}" style="background: #AC3700; color: white; padding: 16px 32px; text-decoration: none; border-radius: 10px; font-weight: bold; font-size: 16px;">
+              Réinitialiser mon mot de passe
+            </a>
+          </div>
+          <p style="font-size: 14px; color: #666;">Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.</p>
+          <hr style="border: 1px solid #eee; margin: 30px 0;">
+          <p style="font-size: 12px; color: #999; text-align: center;">
+            Yonou Tivaouane - Gestion des déplacements Mbour ↔ Tivaouane<br>
+            © 2025 NPS - Tous droits réservés
+          </p>
+        </div>
+      `
+    });
 
-    // Plus tard tu ajouteras nodemailer ici
-    // await sendResetEmail(email, resetUrl);
+    logger.info(`Email de réinitialisation envoyé à ${email}`);
 
     res.json({
       success: true,
@@ -267,7 +285,7 @@ exports.forgotPassword = async (req, res, next) => {
     });
 
   } catch (error) {
-    logger.error('Erreur forgotPassword:', error);
+    logger.error('Erreur lors de l\'envoi de l\'email de réinitialisation:', error);
     next(error);
   }
 };
@@ -307,8 +325,7 @@ exports.resetPassword = async (req, res, next) => {
       });
     }
 
-    // Mise à jour du mot de passe
-    user.password_hash = password; // Ton hook beforeCreate/beforeUpdate hash automatiquement
+    user.password_hash = password;
     user.reset_password_token = null;
     user.reset_password_expires = null;
     await user.save();
@@ -325,7 +342,3 @@ exports.resetPassword = async (req, res, next) => {
     next(error);
   }
 };
-
-// ======================================================================
-// ========================= FIN DES AJOUTS =============================
-// ======================================================================
