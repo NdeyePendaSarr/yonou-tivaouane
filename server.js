@@ -13,13 +13,13 @@ const sequelize = require('./src/config/database');
 const authRoutes = require('./src/routes/auth.routes');
 const editionsRoutes = require('./src/routes/editions.routes');
 const sectionsRoutes = require('./src/routes/sections.routes');
+const sousLocalitesRoutes = require('./src/routes/sous-localites.routes'); // ✅ AJOUTEZ CETTE LIGNE
 const deplacementsRoutes = require('./src/routes/deplacements.routes');
 const carsRoutes = require('./src/routes/cars.routes');
 const incidentsRoutes = require('./src/routes/incidents.routes');
 const dashboardRoutes = require('./src/routes/dashboard.routes');
 const notificationsRoutes = require('./src/routes/notifications.routes');
 const statsRoutes = require('./src/routes/stats.routes');
-
 
 // Import du logger
 const logger = require('./src/utils/logger');
@@ -78,6 +78,7 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/editions', editionsRoutes);
 app.use('/api/sections', sectionsRoutes);
+app.use('/api/sous-localites', sousLocalitesRoutes); // ✅ AJOUTEZ CETTE LIGNE
 app.use('/api/deplacements', deplacementsRoutes);
 app.use('/api/cars', carsRoutes);
 app.use('/api/incidents', incidentsRoutes);
