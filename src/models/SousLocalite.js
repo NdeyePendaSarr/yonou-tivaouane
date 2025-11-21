@@ -1,7 +1,11 @@
+// ==========================================
+// FICHIER 3 : backend/src/models/SousLocalite.js
+// ==========================================
+
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
-const SousLocalite = sequelize.define('sous_localites', {
+const SousLocalite = sequelize.define('SousLocalite', {
   id: {
     type: DataTypes.INTEGER,
     primaryKey: true,
@@ -12,30 +16,32 @@ const SousLocalite = sequelize.define('sous_localites', {
     allowNull: false,
     unique: true,
     validate: {
-      isIn: [['A', 'B', 'C', 'D', 'E']]
+      is: /^[A-Z]$/,
+      notEmpty: true
     }
   },
   nom: {
     type: DataTypes.STRING(100),
-    allowNull: false
+    allowNull: false,
+    validate: {
+      notEmpty: true
+    }
   },
   description: {
-    type: DataTypes.TEXT
+    type: DataTypes.TEXT,
+    allowNull: true
   },
   ordre_affichage: {
     type: DataTypes.INTEGER,
-    allowNull: false
-  },
-  created_at: {
-    type: DataTypes.DATE,
-    defaultValue: DataTypes.NOW
-  },
-  updated_at: {
-    type: DataTypes.DATE,
-    defaultValue: DataTypes.NOW
+    allowNull: false,
+    validate: {
+      min: 1
+    }
   }
 }, {
+  tableName: 'sous_localites',
   timestamps: true,
+  underscored: true,
   createdAt: 'created_at',
   updatedAt: 'updated_at'
 });
