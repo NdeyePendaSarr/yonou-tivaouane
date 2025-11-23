@@ -1,6 +1,59 @@
 const { Car, Deplacement, Section, SousLocalite, EditionMawlid, Incident } = require('../models');
 const logger = require('../utils/logger');
 
+/**
+ * ✅ FONCTION UTILITAIRE : Mettre à jour automatiquement le statut d'un déplacement
+ * selon le statut de ses cars
+ */
+async function updateDeplacementStatut(deplacementId) {
+  try {
+    const deplacement = await Deplacement.findByPk(deplacementId);
+    if (!deplacement) return;
+
+    // Récupérer tous les cars actifs du déplacement
+    const cars = await Car.findAll({
+      where: { deplacement_id: deplacementId }
+    });
+
+    if (cars.length === 0) {
+      // Aucun car : statut reste "Non commencé"
+      deplacement.statut = 'Non commencé';
+    } else {
+      // Vérifier s'il y a un incident
+      const hasIncident = cars.some(car => car.statut_temps_reel === 'Incident');
+      
+      if (hasIncident) {
+        deplacement.statut = 'Incident';
+      } else {
+        // Vérifier si tous les cars sont arrivés
+        const allArrived = cars.every(car => 
+          car.statut_temps_reel === 'Arrivé à Tivaouane' || 
+          car.statut_temps_reel === 'Arrivé à Mbour'
+        );
+
+        if (allArrived) {
+          deplacement.statut = 'Terminé';
+        } else {
+          // Vérifier si au moins un car est parti ou en route
+          const someStarted = cars.some(car => 
+            car.statut_temps_reel === 'En route' || 
+            car.statut_temps_reel === 'En route vers Mbour' ||
+            car.statut_temps_reel === 'Arrivé à Tivaouane' ||
+            car.statut_temps_reel === 'À Tivaouane'
+          );
+
+          deplacement.statut = someStarted ? 'En cours' : 'Non commencé';
+        }
+      }
+    }
+
+    await deplacement.save();
+    logger.info(`✅ Statut du déplacement ${deplacementId} mis à jour automatiquement: ${deplacement.statut}`);
+  } catch (error) {
+    logger.error(`❌ Erreur mise à jour statut déplacement ${deplacementId}:`, error);
+  }
+}
+
 // @desc    Obtenir tous les cars
 // @route   GET /api/cars
 // @access  Private
@@ -212,6 +265,9 @@ exports.createCar = async (req, res, next) => {
 
     logger.info(`Nouveau car créé: ${numero_car} pour déplacement ${deplacement_id} par ${req.user.email}`);
 
+    // ✅ METTRE À JOUR LE STATUT DU DÉPLACEMENT (le car est "À Mbour" donc statut reste probablement "Non commencé")
+    await updateDeplacementStatut(deplacement_id);
+
     // Récupérer avec les relations
     const carComplet = await Car.findByPk(car.id, {
       include: [
@@ -318,12 +374,12 @@ exports.updateCarStatus = async (req, res, next) => {
       car.heure_arrivee_effective = new Date(heure_arrivee_effective);
     }
 
-    // Le hook beforeSave calculera automatiquement la durée et l'alerte
     await car.save();
 
-    logger.info(`Statut du car ${car.id} mis à jour: ${statut_temps_reel} par ${req.user.email}`);
+    // ✅ METTRE À JOUR LE STATUT DU DÉPLACEMENT
+    await updateDeplacementStatut(car.deplacement_id);
 
-    // TODO: Créer une notification si alerte_retard = true
+    logger.info(`Statut du car ${car.id} mis à jour: ${statut_temps_reel} par ${req.user.email}`);
 
     res.status(200).json({
       success: true,
@@ -354,6 +410,9 @@ exports.enregistrerDepart = async (req, res, next) => {
     car.statut_temps_reel = 'En route';
 
     await car.save();
+
+    // ✅ METTRE À JOUR LE STATUT DU DÉPLACEMENT (doit passer à "En cours")
+    await updateDeplacementStatut(car.deplacement_id);
 
     logger.info(`Départ enregistré pour le car ${car.id} par ${req.user.email}`);
 
@@ -397,6 +456,9 @@ exports.enregistrerArrivee = async (req, res, next) => {
     }
 
     await car.save();
+
+    // ✅ METTRE À JOUR LE STATUT DU DÉPLACEMENT (peut passer à "Terminé" si tous arrivés)
+    await updateDeplacementStatut(car.deplacement_id);
 
     logger.info(`Arrivée enregistrée pour le car ${car.id} par ${req.user.email}`);
 
@@ -443,7 +505,12 @@ exports.deleteCar = async (req, res, next) => {
       });
     }
 
+    const deplacementId = car.deplacement_id;
+
     await car.destroy();
+
+    // ✅ METTRE À JOUR LE STATUT DU DÉPLACEMENT (peut revenir à "Non commencé" si c'était le seul car)
+    await updateDeplacementStatut(deplacementId);
 
     logger.info(`Car ${car.id} supprimé par ${req.user.email}`);
 
