@@ -61,6 +61,15 @@ const Car = sequelize.define('cars', {
     type: DataTypes.BOOLEAN,
     defaultValue: false
   },
+  // ✅ AJOUT : Champs pour soft delete
+  is_deleted: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
+  },
+  deleted_at: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
   created_at: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW
@@ -73,6 +82,23 @@ const Car = sequelize.define('cars', {
   timestamps: true,
   createdAt: 'created_at',
   updatedAt: 'updated_at',
+  // ✅ AJOUT : Scope par défaut pour exclure les supprimés
+  defaultScope: {
+    where: {
+      is_deleted: false
+    }
+  },
+  // ✅ AJOUT : Scope pour inclure les supprimés
+  scopes: {
+    withDeleted: {
+      where: {}
+    },
+    onlyDeleted: {
+      where: {
+        is_deleted: true
+      }
+    }
+  },
   hooks: {
     beforeSave: (car) => {
       if (car.heure_depart_effective && car.heure_arrivee_effective) {

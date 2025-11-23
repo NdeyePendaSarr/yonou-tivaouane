@@ -207,7 +207,8 @@ exports.createCar = async (req, res, next) => {
       immatriculation,
       nom_chauffeur,
       contact_chauffeur,
-      statut_temps_reel: 'À Mbour'
+      statut_temps_reel: 'À Mbour',
+      is_deleted: false
     });
 
     logger.info(`Nouveau car créé: ${numero_car} pour déplacement ${deplacement_id} par ${req.user.email}`);
@@ -242,7 +243,8 @@ exports.createCar = async (req, res, next) => {
 // @access  Private (Super Admin)
 exports.updateCar = async (req, res, next) => {
   try {
-    const car = await Car.findByPk(req.params.id);
+    // ✅ Utiliser scope pour chercher même les supprimés si nécessaire
+    const car = await Car.scope('withDeleted').findByPk(req.params.id);
 
     if (!car) {
       return res.status(404).json({
@@ -259,17 +261,29 @@ exports.updateCar = async (req, res, next) => {
       contact_responsable,
       immatriculation,
       nom_chauffeur,
-      contact_chauffeur
+      contact_chauffeur,
+      is_deleted,
+      deleted_at
     } = req.body;
 
-    if (numero_car) car.numero_car = numero_car;
-    if (nombre_passagers) car.nombre_passagers = nombre_passagers;
-    if (route_empruntee) car.route_empruntee = route_empruntee;
-    if (responsable_car) car.responsable_car = responsable_car;
-    if (contact_responsable) car.contact_responsable = contact_responsable;
+    if (numero_car !== undefined) car.numero_car = numero_car;
+    if (nombre_passagers !== undefined) car.nombre_passagers = nombre_passagers;
+    if (route_empruntee !== undefined) car.route_empruntee = route_empruntee;
+    if (responsable_car !== undefined) car.responsable_car = responsable_car;
+    if (contact_responsable !== undefined) car.contact_responsable = contact_responsable;
     if (immatriculation !== undefined) car.immatriculation = immatriculation;
     if (nom_chauffeur !== undefined) car.nom_chauffeur = nom_chauffeur;
     if (contact_chauffeur !== undefined) car.contact_chauffeur = contact_chauffeur;
+    
+    // ✅ Support du soft delete via update
+    if (is_deleted !== undefined) {
+      car.is_deleted = is_deleted;
+      if (is_deleted === true) {
+        car.deleted_at = deleted_at || new Date();
+      } else {
+        car.deleted_at = null;
+      }
+    }
 
     await car.save();
 
@@ -322,8 +336,6 @@ exports.updateCarStatus = async (req, res, next) => {
     await car.save();
 
     logger.info(`Statut du car ${car.id} mis à jour: ${statut_temps_reel} par ${req.user.email}`);
-
-    // TODO: Créer une notification si alerte_retard = true
 
     res.status(200).json({
       success: true,
@@ -429,12 +441,13 @@ exports.enregistrerArrivee = async (req, res, next) => {
   }
 };
 
-// @desc    Supprimer un car
+// @desc    Supprimer un car (SOFT DELETE)
 // @route   DELETE /api/cars/:id
 // @access  Private (Super Admin)
 exports.deleteCar = async (req, res, next) => {
   try {
-    const car = await Car.findByPk(req.params.id);
+    // ✅ Utiliser withDeleted scope pour trouver le car même s'il est déjà supprimé
+    const car = await Car.scope('withDeleted').findByPk(req.params.id);
 
     if (!car) {
       return res.status(404).json({
@@ -443,13 +456,25 @@ exports.deleteCar = async (req, res, next) => {
       });
     }
 
-    await car.destroy();
+    // ✅ Vérifier s'il est déjà supprimé
+    if (car.is_deleted) {
+      return res.status(400).json({
+        success: false,
+        message: 'Ce car est déjà supprimé'
+      });
+    }
 
-    logger.info(`Car ${car.id} supprimé par ${req.user.email}`);
+    // ✅ SOFT DELETE : Marquer comme supprimé au lieu de détruire
+    car.is_deleted = true;
+    car.deleted_at = new Date();
+    await car.save();
+
+    logger.info(`Car ${car.id} supprimé (soft delete) par ${req.user.email}`);
 
     res.status(200).json({
       success: true,
-      message: 'Car supprimé avec succès'
+      message: 'Car supprimé avec succès',
+      data: { car }
     });
 
   } catch (error) {
