@@ -265,7 +265,7 @@ exports.createCar = async (req, res, next) => {
 
     logger.info(`Nouveau car créé: ${numero_car} pour déplacement ${deplacement_id} par ${req.user.email}`);
 
-    // ✅ METTRE À JOUR LE STATUT DU DÉPLACEMENT (le car est "À Mbour" donc statut reste probablement "Non commencé")
+    // ✅ METTRE À JOUR LE STATUT DU DÉPLACEMENT
     await updateDeplacementStatut(deplacement_id);
 
     // Récupérer avec les relations
