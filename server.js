@@ -13,13 +13,14 @@ const sequelize = require('./src/config/database');
 const authRoutes = require('./src/routes/auth.routes');
 const editionsRoutes = require('./src/routes/editions.routes');
 const sectionsRoutes = require('./src/routes/sections.routes');
-const sousLocalitesRoutes = require('./src/routes/sousLocalites.routes'); // ⭐ NOUVEAU
+const sousLocalitesRoutes = require('./src/routes/sousLocalites.routes');
 const deplacementsRoutes = require('./src/routes/deplacements.routes');
 const carsRoutes = require('./src/routes/cars.routes');
 const incidentsRoutes = require('./src/routes/incidents.routes');
 const dashboardRoutes = require('./src/routes/dashboard.routes');
 const notificationsRoutes = require('./src/routes/notifications.routes');
 const statsRoutes = require('./src/routes/stats.routes');
+const rapportsRoutes = require('./src/routes/rapports.routes'); // ⭐ AJOUTÉ ICI
 
 // Import du logger
 const logger = require('./src/utils/logger');
@@ -78,13 +79,14 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/editions', editionsRoutes);
 app.use('/api/sections', sectionsRoutes);
-app.use('/api/sous-localites', sousLocalitesRoutes); // ⭐ NOUVEAU
+app.use('/api/sous-localites', sousLocalitesRoutes);
 app.use('/api/deplacements', deplacementsRoutes);
 app.use('/api/cars', carsRoutes);
 app.use('/api/incidents', incidentsRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/rapports', rapportsRoutes); // ⭐ AJOUTÉ ICI
 
 // Route 404
 app.use('*', (req, res) => {
@@ -115,7 +117,8 @@ const startServer = async () => {
       logger.info(`🚀 Serveur démarré sur le port ${PORT}`);
       logger.info(`📍 Environnement: ${process.env.NODE_ENV}`);
       logger.info(`🔗 API disponible sur: http://localhost:${PORT}/api`);
-      logger.info(`✅ API Sous-localités activée`); // ⭐ NOUVEAU
+      logger.info(`✅ API Sous-localités activée`);
+      logger.info(`📊 API Rapports activée`); // ⭐ NOUVEAU
     });
 
   } catch (error) {
