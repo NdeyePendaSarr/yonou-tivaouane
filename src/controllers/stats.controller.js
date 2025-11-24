@@ -38,6 +38,7 @@ exports.getDashboardStats = async (req, res, next) => {
           cars_en_retard: 0,
           incidents_en_cours: 0,
           incidents_resolus: 0,
+          incidents_total: 0,
           taux_remplissage: 0
         }
       });
@@ -63,7 +64,8 @@ exports.getDashboardStats = async (req, res, next) => {
       include: [{
         model: Deplacement,
         as: 'deplacement',
-        where: { edition_id: activeEdition.id }
+        where: { edition_id: activeEdition.id },
+        required: false // ⚠️ Important : permet de récupérer aussi les cars sans déplacement
       }]
     });
 
@@ -83,21 +85,43 @@ exports.getDashboardStats = async (req, res, next) => {
 
     const carsEnRetard = allCars.filter(c => c.alerte_retard === true).length;
 
-    // 7. Stats des incidents
-    const incidents = await Incident.findAll({
-      include: [{
-        model: Car,
-        as: 'car',
-        include: [{
-          model: Deplacement,
-          as: 'deplacement',
-          where: { edition_id: activeEdition.id }
-        }]
-      }]
-    });
+    // 7. ⚠️ CORRECTION : Stats des incidents avec la bonne colonne
+    const carIds = allCars.map(c => c.id);
 
-    const incidentsEnCours = incidents.filter(i => i.statut === 'En cours').length;
-    const incidentsResolus = incidents.filter(i => i.statut === 'Résolu').length;
+    let incidentsEnCours = 0;
+    let incidentsResolus = 0;
+    let totalIncidents = 0;
+
+    if (carIds.length > 0) {
+      // La colonne s'appelle "statut_resolution" et non "statut"
+      incidentsEnCours = await Incident.count({
+        where: { 
+          car_id: { [Op.in]: carIds },
+          statut_resolution: 'En cours'
+        }
+      });
+
+      incidentsResolus = await Incident.count({
+        where: { 
+          car_id: { [Op.in]: carIds },
+          statut_resolution: 'Résolu'
+        }
+      });
+
+      totalIncidents = await Incident.count({
+        where: { 
+          car_id: { [Op.in]: carIds }
+        }
+      });
+    }
+
+    // Log pour déboguer
+    logger.info('📊 Stats Incidents:', {
+      carIds: carIds.length,
+      total: totalIncidents,
+      en_cours: incidentsEnCours,
+      resolus: incidentsResolus
+    });
 
     // 8. Calculer le taux de remplissage
     let tauxRemplissage = 0;
@@ -125,6 +149,7 @@ exports.getDashboardStats = async (req, res, next) => {
       cars_en_retard: carsEnRetard,
       incidents_en_cours: incidentsEnCours,
       incidents_resolus: incidentsResolus,
+      incidents_total: totalIncidents,
       taux_remplissage: tauxRemplissage
     };
 
@@ -234,21 +259,22 @@ exports.getStatsEdition = async (req, res, next) => {
       include: [{
         model: Deplacement,
         as: 'deplacement',
-        where: { edition_id: editionId }
+        where: { edition_id: editionId },
+        required: false
       }]
     });
 
-    const incidents = await Incident.findAll({
-      include: [{
-        model: Car,
-        as: 'car',
-        include: [{
-          model: Deplacement,
-          as: 'deplacement',
-          where: { edition_id: editionId }
-        }]
-      }]
-    });
+    const carIds = cars.map(c => c.id);
+
+    // Compter tous les incidents liés à ces cars (avec la bonne colonne)
+    let totalIncidents = 0;
+    if (carIds.length > 0) {
+      totalIncidents = await Incident.count({
+        where: { 
+          car_id: { [Op.in]: carIds }
+        }
+      });
+    }
 
     res.status(200).json({
       success: true,
@@ -259,7 +285,7 @@ exports.getStatsEdition = async (req, res, next) => {
         is_active: edition.is_active,
         total_deplacements: deplacements.length,
         total_cars: cars.length,
-        total_incidents: incidents.length,
+        total_incidents: totalIncidents,
         deplacements_aller: deplacements.filter(d => d.type === 'ALLER').length,
         deplacements_retour: deplacements.filter(d => d.type === 'RETOUR').length
       }
